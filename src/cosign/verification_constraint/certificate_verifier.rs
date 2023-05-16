@@ -1,7 +1,7 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
-use pkcs8::der::Decode;
 use std::convert::TryFrom;
 use tracing::warn;
+use x509_cert::der::Decode;
 use x509_cert::Certificate;
 
 use super::VerificationConstraint;
