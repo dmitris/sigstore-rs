@@ -506,7 +506,7 @@ fn get_cert_extension_by_oid(
         .iter()
         .find(|ext| ext.extn_id == ext_oid)
         .map(|ext| {
-            String::from_utf8(ext.extn_value.to_vec()).map_err(|_| {
+            String::from_utf8(ext.extn_value.into_bytes()).map_err(|_| {
                 SigstoreError::X509Error(format!(
                     "Certificate's extension Sigstore {ext_oid_name} is not UTF8 compatible"
                 ))
