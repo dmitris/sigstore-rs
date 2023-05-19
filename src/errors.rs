@@ -213,4 +213,7 @@ pub enum SigstoreError {
     // PKCS1Error(#[from] pkcs1::Error),
     #[error(transparent)]
     Ed25519PKCS8Error(#[from] ed25519_dalek::pkcs8::spki::Error),
+
+    #[error("infallible")]
+    Infallible(String),
 }
