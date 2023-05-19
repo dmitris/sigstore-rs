@@ -76,8 +76,8 @@ const-oid = "0.9.1"
 der = "0.7.5"
 digest = { version = "0.10.3", default-features = false }
 ecdsa = { version = "0.15", features = ["pkcs8", "digest", "der"] }
-ed25519 = { version = "=2.1", features = ["alloc"] }
-ed25519-dalek = { version = "2.0.0-pre.0", features = ["pkcs8", "rand_core"] }
+ed25519 = { version = "2.2.1", features = ["alloc"] }
+ed25519-dalek = { version = "2.0.0-rc.2", features = ["pkcs8", "rand_core"] }
 elliptic-curve = { version = "0.12.2", features = ["arithmetic", "pem"] }
 lazy_static = "1.4.0"
 oci-distribution = { version = "0.9", default-features = false, optional = true }
@@ -113,6 +113,7 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 sha2 = { version = "0.10.6", features = ["oid"] }
 signature = { version = "2.0" }
+spki = { version = "0.7.2", features = ["pem", "std"] }
 thiserror = "1.0.30"
 tokio = { version = "1.17.0", features = ["rt"] }
 tough = { version = "0.13", features = ["http"], optional = true }
