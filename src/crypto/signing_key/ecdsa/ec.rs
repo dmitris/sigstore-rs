@@ -37,7 +37,7 @@
 //!
 //! *Not recommend to directly use this mod. Use [`ECDSAKeys`], [`super::super::SigStoreKeyPair`] for
 //! key pair and [`super::SigStoreSigner`] for signing instead*
-//!  
+//!
 //! When to generate an EC key pair, a specific elliptic curve
 //! should be chosen. Supported elliptic curves are listed
 //! <https://github.com/RustCrypto/elliptic-curves#crates>.
@@ -81,8 +81,7 @@ use elliptic_curve::{
     sec1::{FromEncodedPoint, ModulusSize, ToEncodedPoint},
     subtle::CtOption,
     zeroize::Zeroizing,
-    AffineArithmetic, AffinePoint, Curve, FieldSize, ProjectiveArithmetic, PublicKey, Scalar,
-    SecretKey,
+    AffinePoint, Curve, CurveArithmetic, PublicKey, Scalar, SecretKey,
 };
 use pkcs8::{der::Encode, AssociatedOid, DecodePrivateKey, EncodePrivateKey, EncodePublicKey};
 use signature::DigestSigner;
@@ -110,7 +109,7 @@ use super::ECDSAKeys;
 #[derive(Clone, Debug)]
 pub struct EcdsaKeys<C>
 where
-    C: Curve + ProjectiveArithmetic + pkcs8::AssociatedOid,
+    C: Curve + CurveArithmetic + pkcs8::AssociatedOid,
 {
     ec_seckey: SecretKey<C>,
     public_key: PublicKey<C>,
@@ -118,9 +117,9 @@ where
 
 impl<C> EcdsaKeys<C>
 where
-    C: Curve + AssociatedOid + ProjectiveArithmetic + PrimeCurve,
+    C: Curve + AssociatedOid + CurveArithmetic + PrimeCurve,
     AffinePoint<C>: FromEncodedPoint<C> + ToEncodedPoint<C>,
-    FieldSize<C>: ModulusSize,
+    // FieldSize<C>: ModulusSize,
 {
     /// Create a new `EcdsaKeys` Object, the generic parameter indicates
     /// the elliptic curve. Please refer to
@@ -207,9 +206,9 @@ where
 
 impl<C> KeyPair for EcdsaKeys<C>
 where
-    C: Curve + AssociatedOid + ProjectiveArithmetic + PrimeCurve,
+    C: Curve + AssociatedOid + CurveArithmetic + PrimeCurve,
     AffinePoint<C>: FromEncodedPoint<C> + ToEncodedPoint<C>,
-    FieldSize<C>: ModulusSize,
+    // FieldSize<C>: ModulusSize,
 {
     /// Return the public key in PEM-encoded SPKI format.
     fn public_key_to_pem(&self) -> Result<String> {

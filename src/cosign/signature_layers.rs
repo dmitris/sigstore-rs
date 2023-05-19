@@ -16,14 +16,15 @@
 use const_oid::ObjectIdentifier;
 use digest::Digest;
 use oci_distribution::client::ImageLayer;
-use pkcs8::der::Decode;
 use serde::Serialize;
 use std::convert::TryFrom;
 use std::{collections::HashMap, fmt};
 use tracing::{debug, info, warn};
+use x509_cert::der::Decode;
 use x509_cert::ext::pkix::name::GeneralName;
 use x509_cert::ext::pkix::SubjectAltName;
 use x509_cert::Certificate;
+// use pkcs8::der::Decode;
 
 use super::bundle::Bundle;
 use super::constants::{

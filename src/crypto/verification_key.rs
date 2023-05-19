@@ -14,13 +14,17 @@
 // limitations under the License.
 
 use base64::{engine::general_purpose::STANDARD as BASE64_STD_ENGINE, Engine as _};
-use const_oid::db::rfc5912::{ID_EC_PUBLIC_KEY, RSA_ENCRYPTION};
+use const_oid::{
+    db::rfc5912::{ID_EC_PUBLIC_KEY, RSA_ENCRYPTION},
+    ObjectIdentifier,
+};
 use ed25519::pkcs8::DecodePublicKey as ED25519DecodePublicKey;
-use pkcs8::{DecodePublicKey, SubjectPublicKeyInfo};
 use rsa::{pkcs1v15, pss};
 use sha2::{Digest, Sha256, Sha384};
 use signature::{DigestVerifier, Verifier};
 use std::convert::TryFrom;
+use x509_cert::spki::{DecodePublicKey, SubjectPublicKeyInfo};
+// pkcs8::{DecodePublicKey, SubjectPublicKeyInfo};
 
 use super::{
     signing_key::{KeyPair, SigStoreSigner},
@@ -66,38 +70,42 @@ pub enum CosignVerificationKey {
 ///   * ECDSA P-256: assumes the SHA-256 digest algorithm is used
 ///   * ECDSA P-384: assumes the SHA-384 digest algorithm is used
 ///   * RSA: assumes PKCS1 padding is used
-impl<'a> TryFrom<&SubjectPublicKeyInfo<'a>> for CosignVerificationKey {
+impl<P, K> TryFrom<&SubjectPublicKeyInfo<P, K>> for CosignVerificationKey {
     type Error = SigstoreError;
 
-    fn try_from(subject_pub_key_info: &SubjectPublicKeyInfo<'a>) -> Result<Self> {
+    fn try_from(subject_pub_key_info: &SubjectPublicKeyInfo<P, K>) -> Result<Self> {
         let algorithm = subject_pub_key_info.algorithm.oid;
         let public_key_der = subject_pub_key_info.subject_public_key;
+        let oid_ecdsa_p256 = "1.2.840.10045.3.1.7".parse::<ObjectIdentifier>().unwrap();
+        let oid_ecdsa_p384 = "1.3.132.0.34".parse::<ObjectIdentifier>().unwrap();
         match algorithm {
-            ID_EC_PUBLIC_KEY => match public_key_der.len() {
-                65 => Ok(CosignVerificationKey::ECDSA_P256_SHA256_ASN1(
-                    ecdsa::VerifyingKey::try_from(subject_pub_key_info.subject_public_key)
-                        .map_err(|e| {
-                            SigstoreError::PKCS8SpkiError(format!(
-                                "Ecdsa-P256 from der bytes to public key failed: {e}"
-                            ))
-                        })?,
-                )),
-                97 => Ok(CosignVerificationKey::ECDSA_P384_SHA384_ASN1(
-                    ecdsa::VerifyingKey::try_from(subject_pub_key_info.subject_public_key)
-                        .map_err(|e| {
-                            SigstoreError::PKCS8SpkiError(format!(
-                                "Ecdsa-P384 from der bytes to public key failed: {e}"
-                            ))
-                        })?,
-                )),
-                _ => Err(SigstoreError::PublicKeyUnsupportedAlgorithmError(format!(
-                    "EC with size {} is not supported",
-                    // asn.1 encode caused different length
-                    (public_key_der.len() - 1) * 4
-                ))),
-            },
+            ID_EC_PUBLIC_KEY => {
+                if algorithm.eq(&oid_ecdsa_p256) {
+                    Ok(CosignVerificationKey::ECDSA_P256_SHA256_ASN1(
+                        ecdsa::VerifyingKey::try_from(subject_pub_key_info.subject_public_key)
+                            .map_err(|e| {
+                                SigstoreError::PKCS8SpkiError(format!(
+                                    "Ecdsa-P256 from der bytes to public key failed: {e}"
+                                ))
+                            })?,
+                    ))
+                } else if algorithm.eq(&oid_ecdsa_p384) {
+                    Ok(CosignVerificationKey::ECDSA_P384_SHA384_ASN1(
+                        ecdsa::VerifyingKey::try_from(subject_pub_key_info.subject_public_key)
+                            .map_err(|e| {
+                                SigstoreError::PKCS8SpkiError(format!(
+                                    "Ecdsa-P384 from der bytes to public key failed: {e}"
+                                ))
+                            })?,
+                    ))
+                } else {
+                    Err(SigstoreError::PublicKeyUnsupportedAlgorithmError(format!(
+                        "EC other than ECDSA_P256_SHA256_ASN1 and ECDSA_P384_SHA384_ASN1 is not supported"
+                    )))
+                }
+            }
             RSA_ENCRYPTION => {
-                let pubkey = rsa::RsaPublicKey::try_from(*subject_pub_key_info).map_err(|e| {
+                let pubkey = rsa::RsaPublicKey::try_from(subject_pub_key_info).map_err(|e| {
                     SigstoreError::PKCS8SpkiError(format!(
                         "RSA from der bytes to public key failed: {e}"
                     ))
