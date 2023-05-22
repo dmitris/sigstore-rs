@@ -71,7 +71,8 @@ pub enum CosignVerificationKey {
 ///   * RSA: assumes PKCS1 padding is used
 impl<P, K> TryFrom<&SubjectPublicKeyInfo<P, K>> for CosignVerificationKey
 where
-    ed25519_dalek::VerifyingKey: From<K>, // TODO(dmitris): review & decide on alt
+    ed25519_dalek::VerifyingKey: From<K>,
+    ecdsa::VerifyingKey<p256::NistP256>: From<K>, // TODO(dmitris): review & decide on alt
 {
     type Error = SigstoreError;
 
