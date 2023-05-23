@@ -65,10 +65,10 @@ pub enum CosignVerificationKey {
 ///   * ECDSA P-256: assumes the SHA-256 digest algorithm is used
 ///   * ECDSA P-384: assumes the SHA-384 digest algorithm is used
 ///   * RSA: assumes PKCS1 padding is used
-impl<'a> TryFrom<&SubjectPublicKeyInfo<'a>> for CosignVerificationKey {
+impl<P, K> TryFrom<&SubjectPublicKeyInfo<P, K>> for CosignVerificationKey {
     type Error = SigstoreError;
 
-    fn try_from(subject_pub_key_info: &SubjectPublicKeyInfo<'a>) -> Result<Self> {
+    fn try_from(subject_pub_key_info: &SubjectPublicKeyInfo<P, K>) -> Result<Self> {
         let algorithm = subject_pub_key_info.algorithm.oid;
         let public_key_der = subject_pub_key_info.subject_public_key;
         match algorithm {
