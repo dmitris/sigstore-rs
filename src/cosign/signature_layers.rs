@@ -17,6 +17,7 @@ use const_oid::ObjectIdentifier;
 use digest::Digest;
 use oci_distribution::client::ImageLayer;
 use serde::Serialize;
+use spki::SubjectPublicKeyInfoRef;
 use std::convert::TryFrom;
 use std::{collections::HashMap, fmt};
 use tracing::{debug, info, warn};
@@ -445,8 +446,8 @@ impl CertificateSignature {
         crypto::certificate::is_trusted(&cert, integrated_time)?;
 
         let subject = CertificateSubject::from_certificate(&cert)?;
-        let verification_key =
-            CosignVerificationKey::try_from(&cert.tbs_certificate.subject_public_key_info)?;
+        let spki = SubjectPublicKeyInfoRef::try_from(pem.contents())?;
+        let verification_key = CosignVerificationKey::try_from(spki)?;
 
         let issuer = get_cert_extension_by_oid(&cert, SIGSTORE_ISSUER_OID, "Issuer")?;
 

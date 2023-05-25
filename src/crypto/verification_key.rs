@@ -23,7 +23,7 @@ use rsa::{pkcs1v15, pss};
 use sha2::{Digest, Sha256, Sha384};
 use signature::{DigestVerifier, Verifier};
 use std::convert::TryFrom;
-use x509_cert::spki::SubjectPublicKeyInfo;
+use x509_cert::spki::SubjectPublicKeyInfoRef;
 
 use super::{
     signing_key::{KeyPair, SigStoreSigner},
@@ -69,14 +69,14 @@ pub enum CosignVerificationKey {
 ///   * ECDSA P-256: assumes the SHA-256 digest algorithm is used
 ///   * ECDSA P-384: assumes the SHA-384 digest algorithm is used
 ///   * RSA: assumes PKCS1 padding is used
-impl<P, K> TryFrom<&SubjectPublicKeyInfo<P, K>> for CosignVerificationKey
-where
-    ed25519_dalek::VerifyingKey: From<K>,
-    ecdsa::VerifyingKey<p256::NistP256>: From<K>, // TODO(dmitris): review & decide on alt
+impl TryFrom<SubjectPublicKeyInfoRef<'_>> for CosignVerificationKey
+// where
+//     ed25519_dalek::VerifyingKey: From<K>,
+//     ecdsa::VerifyingKey<p256::NistP256>: From<K>, // TODO(dmitris): review & decide on alt
 {
     type Error = SigstoreError;
 
-    fn try_from(subject_pub_key_info: &SubjectPublicKeyInfo<P, K>) -> Result<Self> {
+    fn try_from(subject_pub_key_info: SubjectPublicKeyInfoRef) -> Result<Self> {
         let algorithm = subject_pub_key_info.algorithm.oid;
         let public_key_der = subject_pub_key_info.subject_public_key;
         let oid_ecdsa_p256 = "1.2.840.10045.3.1.7".parse::<ObjectIdentifier>().unwrap();
@@ -85,20 +85,15 @@ where
             ID_EC_PUBLIC_KEY => {
                 if algorithm.eq(&oid_ecdsa_p256) {
                     Ok(CosignVerificationKey::ECDSA_P256_SHA256_ASN1(
-                        ecdsa::VerifyingKey::try_from(subject_pub_key_info.subject_public_key)
-                            .map_err(|e| {
-                                SigstoreError::PKCS8SpkiError(format!(
-                                    "Ecdsa-P256 from der bytes to public key failed: {e}"
-                                ))
-                            })?,
+                        ecdsa::VerifyingKey::try_from(subject_pub_key_info).map_err(|e| {
+                            SigstoreError::PKCS8SpkiError(format!(
+                                "Ecdsa-P256 from der bytes to public key failed: {e}"
+                            ))
+                        })?,
                     ))
                 } else if algorithm.eq(&oid_ecdsa_p384) {
-                    let spk_temp = spki::SubjectPublicKeyInfo {
-                        algorithm: subject_pub_key_info.algorithm,
-                        subject_public_key: subject_pub_key_info.subject_public_key,
-                    };
                     Ok(CosignVerificationKey::ECDSA_P384_SHA384_ASN1(
-                        ecdsa::VerifyingKey::try_from(spk_temp).map_err(|e| {
+                        ecdsa::VerifyingKey::try_from(subject_pub_key_info).map_err(|e| {
                             SigstoreError::PKCS8SpkiError(format!(
                                 "Ecdsa-P384 from der bytes to public key failed: {e}"
                             ))
@@ -123,12 +118,11 @@ where
             //
             #[cfg(feature = "cosign")]
             ED25519 => Ok(CosignVerificationKey::ED25519(
-                ed25519_dalek::VerifyingKey::try_from(subject_pub_key_info.subject_public_key)
-                    .map_err(|e| {
-                        SigstoreError::Infallible(
-                            "VerifyingKey creation from subject_public key failed despite".into(),
-                        )
-                    })?,
+                ed25519_dalek::VerifyingKey::try_from(subject_pub_key_info).map_err(|e| {
+                    SigstoreError::Infallible(
+                        "VerifyingKey creation from subject_public key failed despite".into(),
+                    )
+                })?,
             )),
             _ => Err(SigstoreError::PublicKeyUnsupportedAlgorithmError(format!(
                 "Key with algorithm OID {} is not supported",
@@ -468,10 +462,10 @@ DwIDAQAB
         let issued_cert_pem = issued_cert.cert.to_pem()?;
         let pem = pem::parse(issued_cert_pem)?;
         let cert = Certificate::from_der(pem.contents())?;
-        let spki = cert.tbs_certificate.subject_public_key_info;
+        let spki = SubjectPublicKeyInfoRef::try_from(pem.contents())?;
 
         let cosign_verification_key =
-            CosignVerificationKey::try_from(&spki).expect("conversion failed");
+            CosignVerificationKey::try_from(spki).expect("conversion failed");
 
         assert!(matches!(
             cosign_verification_key,
@@ -494,11 +488,10 @@ DwIDAQAB
         let issued_cert = generate_certificate(Some(&ca_data), issued_cert_generation_options)?;
         let issued_cert_pem = issued_cert.cert.to_pem()?;
         let pem = pem::parse(issued_cert_pem)?;
-        let cert = Certificate::from_der(pem.contents())?;
-        let spki = cert.tbs_certificate.subject_public_key_info;
+        let spki = SubjectPublicKeyInfoRef::try_from(pem.contents())?;
 
         let cosign_verification_key =
-            CosignVerificationKey::try_from(&spki).expect("conversion failed");
+            CosignVerificationKey::try_from(spki).expect("conversion failed");
 
         assert!(matches!(
             cosign_verification_key,
@@ -521,11 +514,10 @@ DwIDAQAB
         let issued_cert = generate_certificate(Some(&ca_data), issued_cert_generation_options)?;
         let issued_cert_pem = issued_cert.cert.to_pem()?;
         let pem = pem::parse(issued_cert_pem)?;
-        let cert = Certificate::from_der(pem.contents())?;
-        let spki = cert.tbs_certificate.subject_public_key_info;
+        let spki = SubjectPublicKeyInfoRef::try_from(pem.contents())?;
 
         let cosign_verification_key =
-            CosignVerificationKey::try_from(&spki).expect("conversion failed");
+            CosignVerificationKey::try_from(spki).expect("conversion failed");
 
         assert!(matches!(
             cosign_verification_key,
@@ -548,11 +540,11 @@ DwIDAQAB
         let issued_cert = generate_certificate(Some(&ca_data), issued_cert_generation_options)?;
         let issued_cert_pem = issued_cert.cert.to_pem()?;
         let pem = pem::parse(issued_cert_pem)?;
-        let cert = Certificate::from_der(pem.contents())?;
-        let spki = cert.tbs_certificate.subject_public_key_info;
+        // let cert = Certificate::from_der(pem.contents())?;
+        let spki = SubjectPublicKeyInfoRef::try_from(pem.contents())?;
 
         let cosign_verification_key =
-            CosignVerificationKey::try_from(&spki).expect("conversion failed");
+            CosignVerificationKey::try_from(spki).expect("conversion failed");
 
         assert!(matches!(
             cosign_verification_key,
@@ -576,10 +568,9 @@ DwIDAQAB
         let issued_cert = generate_certificate(Some(&ca_data), issued_cert_generation_options)?;
         let issued_cert_pem = issued_cert.cert.to_pem()?;
         let pem = pem::parse(issued_cert_pem)?;
-        let cert = Certificate::from_der(pem.contents())?;
-        let spki = cert.tbs_certificate.subject_public_key_info;
+        let spki = SubjectPublicKeyInfoRef::try_from(pem.contents())?;
 
-        let err = CosignVerificationKey::try_from(&spki);
+        let err = CosignVerificationKey::try_from(spki);
         assert!(matches!(
             err,
             Err(SigstoreError::PublicKeyUnsupportedAlgorithmError(_))

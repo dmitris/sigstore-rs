@@ -47,9 +47,8 @@ use crate::registry::{Auth, PushResponse};
 use crate::crypto::{CosignVerificationKey, Signature};
 use crate::errors::SigstoreError;
 use base64::{engine::general_purpose::STANDARD as BASE64_STD_ENGINE, Engine as _};
-use pkcs8::der::Decode;
+use spki::SubjectPublicKeyInfoRef;
 use std::convert::TryFrom;
-use x509_cert::Certificate;
 
 pub mod bundle;
 pub(crate) mod constants;
@@ -161,11 +160,16 @@ pub trait CosignCapabilities {
     fn verify_blob(cert: &str, signature: &str, blob: &[u8]) -> Result<()> {
         let cert = BASE64_STD_ENGINE.decode(cert)?;
         let pem = pem::parse(cert)?;
-        let cert = Certificate::from_der(pem.contents()).map_err(|e| {
-            SigstoreError::PKCS8SpkiError(format!("parse der into cert failed: {e}"))
+        // let cert = Certificate::from_der(pem.contents()).map_err(|e| {
+        //     SigstoreError::PKCS8SpkiError(format!("parse der into cert failed: {e}"))
+        // })?;
+        let spki = SubjectPublicKeyInfoRef::try_from(pem.contents()).map_err(|e| {
+            SigstoreError::PKCS8SpkiError(format!(
+                "parse der into SubjectPublicKeyInfoRef failed: {e}"
+            ))
         })?;
-        let spki = cert.tbs_certificate.subject_public_key_info;
-        let ver_key = CosignVerificationKey::try_from(&spki)?;
+        // let spki = cert.tbs_certificate.subject_public_key_info;
+        let ver_key = CosignVerificationKey::try_from(spki)?;
         let signature = Signature::Base64Encoded(signature.as_bytes());
         ver_key.verify_signature(signature, blob)?;
         Ok(())

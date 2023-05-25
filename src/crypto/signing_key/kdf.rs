@@ -22,7 +22,6 @@
 use base64::{engine::general_purpose::STANDARD as BASE64_STD_ENGINE, Engine as _};
 use crypto_secretbox::aead::{AeadMut, KeyInit};
 use rand::Rng;
-use scrypt::Params;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::errors::*;

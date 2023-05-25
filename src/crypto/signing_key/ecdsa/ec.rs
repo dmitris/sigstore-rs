@@ -73,6 +73,7 @@ use digest::{
     },
     Digest, FixedOutput, FixedOutputReset,
 };
+use ecdsa::signature::DigestSigner;
 use ecdsa::{hazmat::SignPrimitive, PrimeCurve, SignatureSize, SigningKey};
 use elliptic_curve::{
     bigint::ArrayEncoding,
@@ -246,11 +247,7 @@ where
     fn private_key_to_encrypted_pem(&self, password: &[u8]) -> Result<Zeroizing<String>> {
         let der = self.private_key_to_der()?;
         let pem = match password.len() {
-            0 => pem::Pem::new(
-                PRIVATE_KEY_PEM_LABEL.to_string(),
-                der.to_vec()
-                    .map_err(|e| SigstoreError::PKCS8DerError(e.to_string()))?,
-            ),
+            0 => pem::Pem::new(PRIVATE_KEY_PEM_LABEL.to_string(), der.to_vec()),
             _ => pem::Pem::new(
                 SIGSTORE_PRIVATE_KEY_PEM_LABEL.to_string(),
                 kdf::encrypt(&der, password)?,
