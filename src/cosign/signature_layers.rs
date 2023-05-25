@@ -16,14 +16,16 @@
 use const_oid::ObjectIdentifier;
 use digest::Digest;
 use oci_distribution::client::ImageLayer;
-use pkcs8::der::Decode;
 use serde::Serialize;
+use spki::SubjectPublicKeyInfoRef;
 use std::convert::TryFrom;
 use std::{collections::HashMap, fmt};
 use tracing::{debug, info, warn};
+use x509_cert::der::Decode;
 use x509_cert::ext::pkix::name::GeneralName;
 use x509_cert::ext::pkix::SubjectAltName;
 use x509_cert::Certificate;
+// use pkcs8::der::Decode;
 
 use super::bundle::Bundle;
 use super::constants::{
@@ -434,7 +436,7 @@ impl CertificateSignature {
         trusted_bundle: &Bundle,
     ) -> Result<Self> {
         let pem = pem::parse(cert_raw)?;
-        let cert = Certificate::from_der(&pem.contents)
+        let cert = Certificate::from_der(pem.contents())
             .map_err(|e| SigstoreError::X509Error(format!("parse from der: {e}")))?;
         let integrated_time = trusted_bundle.payload.integrated_time;
 
@@ -444,8 +446,8 @@ impl CertificateSignature {
         crypto::certificate::is_trusted(&cert, integrated_time)?;
 
         let subject = CertificateSubject::from_certificate(&cert)?;
-        let verification_key =
-            CosignVerificationKey::try_from(&cert.tbs_certificate.subject_public_key_info)?;
+        let spki = SubjectPublicKeyInfoRef::try_from(pem.contents())?;
+        let verification_key = CosignVerificationKey::try_from(spki)?;
 
         let issuer = get_cert_extension_by_oid(&cert, SIGSTORE_ISSUER_OID, "Issuer")?;
 
@@ -506,7 +508,7 @@ fn get_cert_extension_by_oid(
         .iter()
         .find(|ext| ext.extn_id == ext_oid)
         .map(|ext| {
-            String::from_utf8(ext.extn_value.to_vec()).map_err(|_| {
+            String::from_utf8(ext.extn_value.into_bytes()).map_err(|_| {
                 SigstoreError::X509Error(format!(
                     "Certificate's extension Sigstore {ext_oid_name} is not UTF8 compatible"
                 ))

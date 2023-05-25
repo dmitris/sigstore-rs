@@ -1,5 +1,6 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use pkcs8::der::Decode;
+use spki::SubjectPublicKeyInfoRef;
 use std::convert::TryFrom;
 use tracing::warn;
 use x509_cert::Certificate;
@@ -35,7 +36,7 @@ impl CertificateVerifier {
         cert_chain: Option<&[crate::registry::Certificate]>,
     ) -> Result<Self> {
         let pem = pem::parse(cert_bytes)?;
-        Self::from_der(&pem.contents, require_rekor_bundle, cert_chain)
+        Self::from_der(pem.contents(), require_rekor_bundle, cert_chain)
     }
 
     /// Create a new instance of `CertificateVerifier` using the DER encoded
@@ -66,7 +67,8 @@ impl CertificateVerifier {
         }
 
         let subject_public_key_info = &cert.tbs_certificate.subject_public_key_info;
-        let cosign_verification_key = CosignVerificationKey::try_from(subject_public_key_info)?;
+        let spki = SubjectPublicKeyInfoRef::try_from(cert_bytes)?;
+        let cosign_verification_key = CosignVerificationKey::try_from(spki)?;
 
         Ok(Self {
             cert_verification_key: cosign_verification_key,
